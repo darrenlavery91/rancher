@@ -1,0 +1,93 @@
+manual commands
+Here are the manual commands to set up Rancher on Ubuntu step by step:
+
+1️⃣ Update and Upgrade Ubuntu
+
+sudo apt update && sudo apt upgrade -y
+
+2️⃣ Install OpenSSH Server
+
+sudo apt install -y openssh-server
+
+3️⃣ Install cURL
+
+sudo apt install -y curl
+
+Verify cURL installation:
+
+curl --version
+
+4️⃣ Install Required Dependencies for Docker
+
+sudo apt install -y ca-certificates curl gnupg
+
+5️⃣ Add Docker GPG Key
+
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+6️⃣ Add Docker Repository
+
+echo "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+Update APT Cache:
+
+sudo apt update
+
+7️⃣ Install Docker
+
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+Check Docker Version:
+
+docker --version
+
+8️⃣ Start and Enable Docker
+
+sudo systemctl enable --now docker
+
+9️⃣ Add User to Docker Group
+
+sudo usermod -aG docker $USER
+newgrp docker
+
+Verify Docker Works Without Sudo:
+
+docker run hello-world
+
+🔟 Pull and Run Rancher Docker Container
+
+sudo docker run --privileged -d --restart=unless-stopped -p 80:80 -p 443:443 rancher/rancher
+
+1️⃣1️⃣ Check if Rancher is Running
+
+docker ps
+
+Expected Output:
+
+You should see a container with the rancher/rancher image running.
+
+1️⃣2️⃣ Get Rancher Container ID
+
+docker ps --filter "ancestor=rancher/rancher" --format "{{.ID}}"
+
+1️⃣3️⃣ Get Rancher Bootstrap Password
+
+docker logs $(docker ps --filter "ancestor=rancher/rancher" --format "{{.ID}}") 2>&1 | grep "Bootstrap Password:" | awk '{print $NF}'
+
+1️⃣4️⃣ Open Rancher in Your Browser
+
+Get the system’s IP address:
+
+ip -4 a show $(ip route | grep default | awk '{print $5}') | grep inet | awk '{print $2}' | cut -d/ -f1
+
+Then open:
+
+http://<YOUR_SERVER_IP>
+
+or
+
+https://<YOUR_SERVER_IP>
+
+You’re Done! 🎉
