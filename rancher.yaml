@@ -7,7 +7,7 @@
     rancher_image: "rancher/rancher"
     rancher_port_http: 80
     rancher_port_https: 443
-    rancher_ip: "192.168.138.146"
+    rancher_ip: "{{ ansible_default_ipv4.address }}"
 
   tasks:
 
@@ -83,6 +83,29 @@
         groups: docker
         append: yes
 
+    - name: Pull Rancher Docker Container
+      command: docker run --privileged -d --restart=unless-stopped -p 80:80 -p 443:443 rancher/rancher
+      args:
+        creates: "/var/lib/docker/containers"
+
+    - name: Get Rancher container ID
+      shell: "docker ps --filter 'ancestor=rancher/rancher' --format '{{ '{{' }}.ID{{ '}}' }}'"
+      register: rancher_container_id
+      changed_when: false
+
+    - name: Get Rancher bootstrap password
+      shell: "docker logs {{ rancher_container_id.stdout }} 2>&1 | grep 'Bootstrap Password:' | awk '{print $NF}'"
+      register: rancher_password
+      changed_when: false
+
+    - name: Print Rancher bootstrap password
+      debug:
+        msg: "Rancher Bootstrap Password: {{ rancher_password.stdout }}"
+
+    - name: Open Rancher in browser
+      debug:
+        msg: "Open Rancher in your browser: http://{{ ansible_default_ipv4.address }}"
+
     - name: Install Rancher compatible Docker
       shell: "curl -fsSL {{ docker_url }} | sh"
       args:
@@ -110,7 +133,7 @@
 
     - name: Wait for Rancher to initialize
       pause:
-        minutes: 2
+        minutes: 1
 
     - name: Get Rancher container ID
       command: docker ps --filter "ancestor={{ rancher_image }}" --format "{{'{{.ID}}'}}"
