@@ -1,0 +1,91 @@
+---
+- name: Setup Rancher on Ubuntu
+  hosts: all
+  become: yes
+  vars:
+    docker_url: "https://get.docker.com"
+    rancher_image: "rancher/rancher"
+    rancher_port_http: 80
+    rancher_port_https: 443
+    rancher_ip: "192.168.138.146"
+
+  tasks:
+
+    - name: Update and upgrade Ubuntu packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+
+    - name: Install OpenSSH Server
+      apt:
+        name: openssh-server
+        state: present
+
+    - name: Install cURL
+      apt:
+        name: curl
+        state: present
+
+    - name: Check cURL version
+      command: curl --version
+      register: curl_version
+      changed_when: false
+
+    - debug:
+        msg: "Installed cURL version: {{ curl_version.stdout_lines[0] }}"
+
+    - name: Install Rancher compatible Docker
+      shell: "curl -fsSL {{ docker_url }} | sh"
+      args:
+        creates: /usr/bin/docker
+
+    - name: Add user to Docker group
+      user:
+        name: "{{ ansible_user_id }}"
+        groups: docker
+        append: yes
+
+    - name: Refresh group membership
+      shell: newgrp docker
+      changed_when: false
+
+    - name: Pull Rancher Docker image
+      docker_image:
+        name: "{{ rancher_image }}"
+        source: pull
+
+    - name: Run Rancher container
+      docker_container:
+        name: rancher
+        image: "{{ rancher_image }}"
+        state: started
+        restart_policy: unless-stopped
+        privileged: yes
+        ports:
+          - "{{ rancher_port_http }}:80"
+          - "{{ rancher_port_https }}:443"
+
+    - name: Wait for Rancher to initialize
+      pause:
+        minutes: 2
+
+    - name: Get Rancher container ID
+      command: docker ps --filter "ancestor={{ rancher_image }}" --format "{{'{{.ID}}'}}"
+      register: rancher_container_id
+      changed_when: false
+
+    - debug:
+        msg: "Rancher container ID: {{ rancher_container_id.stdout }}"
+
+    - name: Get Rancher bootstrap password
+      command: docker exec {{ rancher_container_id.stdout }} cat /var/lib/rancher/k3s/server/node-token
+      register: bootstrap_password
+      changed_when: false
+
+    - debug:
+        msg: "Rancher bootstrap password: {{ bootstrap_password.stdout }}"
+
+    - name: Open Rancher in browser
+      debug:
+        msg: "Open Rancher in your browser: http://{{ rancher_ip }}"
